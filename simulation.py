@@ -1,5 +1,4 @@
 from numpy import empty,linspace,tri,copy,diff,zeros,interp,exp,sign
-#import numpy as np
 import math
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
