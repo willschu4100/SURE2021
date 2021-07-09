@@ -3,7 +3,7 @@ import math
 import matplotlib.pyplot as plt
 #import matplotlib.animation as animation
 from matplotlib.animation import FuncAnimation
-def RunSimulation(asc_rate, z0, dz, payloads, delay, dt, I, LightningTimes, LightningMag, LightningPos, LightningWidth):
+def RunSimulation(asc_rate, z0, dz, payloads, delay, startTime, dt, I, LightningTimes, LightningMag, LightningPos, LightningWidth):
     t = 0
     jj = 0
     balloon_z = empty(payloads)
@@ -17,7 +17,7 @@ def RunSimulation(asc_rate, z0, dz, payloads, delay, dt, I, LightningTimes, Ligh
     A = a*(1/(2*e0))
     release_time = [[] for i in range(payloads)]
     for j in range(payloads):
-        release_time[j].append(60*j + delay)
+        release_time[j].append(delay*j + startTime)
     for j in range(payloads):
         balloon_z[j] = z0
     stored_data = [[] for i in range(payloads)]
@@ -37,7 +37,7 @@ def RunSimulation(asc_rate, z0, dz, payloads, delay, dt, I, LightningTimes, Ligh
                 sigma[:] = sigma - sign(E[i]) * diff(lightning_dis)
                 E = calcField(sigma)
                 break
-    sigma = - diff(I) * delay #this is behaving strangely
+    sigma = - diff(I) * delay #this sometimes behaves strangely in the animation
     while t < tmax:
         sigma = sigma - diff(I)*dt
         E = calcField(sigma)
@@ -83,8 +83,7 @@ def RunAnimation(stored_data, stored_height, E_field, z):
         line2.set_data(stored_data[0][:i],stored_height[0][:i])
         return line,
     return FuncAnimation(fig, animate, init_func=init, frames=360, interval=75, blit=True)
-def MakePlots(stored_data, stored_height, stored_time, payloads):
-        
+def MakePlots(stored_data, stored_height, stored_time, payloads):        
         for j in range(payloads):
             plt.plot(stored_data[j],stored_height[j], label="Payload " + str([j+1]))
         plt.xlabel("E (V/m)")
@@ -95,6 +94,6 @@ def MakePlots(stored_data, stored_height, stored_time, payloads):
 def SaveAnimationGif(animation): #Caution: this is experimental
     animationToSave = animation
     animationToSave.save('TestAnimation.gif')
-def SaveAnimationHTML(animation): #Caution: this is experimental
+def SaveAnimationHTML(animation): #Caution: this is experimental. It also does not work
     animationToSave = animation
     animationToSave.save('TestAnimation.html')
