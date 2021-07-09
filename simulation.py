@@ -19,7 +19,7 @@ def RunSimulation(asc_rate, z0, dz, payloads, delay, dt, I, LightningTimes, Ligh
     for j in range(payloads):
         release_time[j].append(60*j + delay)
     for j in range(payloads):
-        balloon_z[j] = 3.22376
+        balloon_z[j] = z0
     stored_data = [[] for i in range(payloads)]
     stored_height = [[] for i in range(payloads)]
     stored_time = [[] for i in range(payloads)]
@@ -83,14 +83,14 @@ def RunAnimation(stored_data, stored_height, E_field, z):
         line2.set_data(stored_data[0][:i],stored_height[0][:i])
         return line,
     return FuncAnimation(fig, animate, init_func=init, frames=360, interval=75, blit=True)
-def MakePlots(stored_data, stored_height, stored_time):
-        payloads = 1
+def MakePlots(stored_data, stored_height, stored_time, payloads):
+        
         for j in range(payloads):
             plt.plot(stored_data[j],stored_height[j], label="Payload " + str([j+1]))
         plt.xlabel("E (V/m)")
         plt.ylabel("Altitude (km)")
         plt.legend(loc="upper left")
-        plt.ylim(3.22376,11)
+        plt.ylim(stored_height[0][0],11)
     
 def SaveAnimationGif(animation): #Caution: this is experimental
     animationToSave = animation
