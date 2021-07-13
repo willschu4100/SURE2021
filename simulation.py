@@ -33,7 +33,8 @@ def RunSimulation(asc_rate, z0, dz, payloads, delay, startTime, dt, I, Lightning
     def TimeDischarge(sigma, E, pos, mag, width):
         for i in range(n):
             if(z[i] >= pos):
-                lightning_dis = -mag * 1e-8 * exp(-width*(z - z[i])**2)
+                #lightning_dis = -mag * 1e-8 * exp(-width*(z - z[i])**2)
+                lightning_dis = -mag * 1e-8 * exp(-(z - z[i])**2/(2*width**2))
                 sigma[:] = sigma - sign(E[i]) * diff(lightning_dis)
                 E = calcField(sigma)
                 break
@@ -54,6 +55,12 @@ def RunSimulation(asc_rate, z0, dz, payloads, delay, startTime, dt, I, Lightning
         sigma_array.append(copy(sigma))
         balloon_data = empty((tmax-delay)//dt)
         for j in range(payloads):
+            if t < release_time[j][0]:
+                balloon_data[j] = 0
+                balloon_z[j] = 0
+                stored_data[j].append(balloon_data[j])
+                stored_height[j].append(balloon_z[j])
+                stored_time[j].append(t)
             if t > release_time[j][0]:
                 balloon_data[j] = interp(balloon_z[j],z[1:],E_field[jj])
                 balloon_z[j] = balloon_z[j] + asc_rate*dt
@@ -69,6 +76,7 @@ def RunAnimation(stored_data, stored_height, E_field, z):
     ax = plt.axes(xlim=(-2e5,2e5), ylim=(0,16))
     line, = ax.plot([], [], lw=2)
     line2, = ax.plot([], [], lw=2)
+    line3, = ax.plot([], [], lw=2)
     #plot(threshold, z[1:])
     #plot(-threshold, z[1:])
     plt.xlabel("E (V/m)")
@@ -77,20 +85,43 @@ def RunAnimation(stored_data, stored_height, E_field, z):
     def init():
         line.set_data([], [])
         line2.set_data([], [])
+        line3.set_data([], [])
         return line,
     def animate(i):
         line.set_data(E_field[i],z[1:])
         line2.set_data(stored_data[0][:i],stored_height[0][:i])
+        line3.set_data(stored_data[1][:i],stored_height[1][:i]) #to get this to work, i might be able to make it so payloads launched
+        #after the first payload have an altitude of zero until their launch time. not sure how to get this to work however
         return line,
     return FuncAnimation(fig, animate, init_func=init, frames=360, interval=75, blit=True)
-def MakePlots(stored_data, stored_height, stored_time, payloads):        
-        for j in range(payloads):
-            plt.plot(stored_data[j],stored_height[j], label="Payload " + str([j+1]))
-        plt.xlabel("E (V/m)")
-        plt.ylabel("Altitude (km)")
-        plt.legend(loc="upper left")
-        plt.ylim(stored_height[0][0],11)
-    
+#to animate multiple payloads, set payload data as a list of payload data. loop over list, make plots for each, store results
+#this probably isn't worth it however
+def MakePlots(stored_data, stored_height, stored_time, payloads):
+    for j in range(payloads):
+        plt.plot(stored_data[j],stored_height[j], label="Payload " + str(j+1))
+        #plt2=plt.twinx(plt)
+        #plt2.plot(stored_data[j],stored_time[j])
+    plt.xlabel("E (V/m)")
+    plt.ylabel("Altitude (km)")
+    plt.legend(loc="upper left")
+    plt.ylim(stored_height[0][0],11)
+    #plt.axes().set_aspect(30000)
+def PlotMultipleSims(stored_data1, stored_height1, stored_time1, stored_data2, stored_height2, stored_time2, payloads):
+    for j in range(payloads):
+        plt.plot(stored_data1[j],stored_height1[j], label="Simulation 1")
+        plt.plot(stored_data2[j],stored_height2[j], label="Simulation 2")
+    plt.xlabel("E (V/m)")
+    plt.ylabel("Altitude (km)")
+    plt.legend(loc="upper left")
+    plt.ylim(stored_height1[0][0],11)        
+def MakePlotsReversed(stored_data, stored_height, stored_time, payloads):
+    for j in range(payloads):
+        plt.plot(stored_height[j], stored_data[j], label="Payload " + str(j+1))
+    plt.xlabel("Altitude (km)")
+    plt.ylabel("E (V/m)")
+    plt.legend(loc="upper left")
+    plt.xlim(stored_height[0][0],11)
+    plt.axes().set_aspect(1/30000)
 def SaveAnimationGif(animation): #Caution: this is experimental
     animationToSave = animation
     animationToSave.save('TestAnimation.gif')
