@@ -90,7 +90,8 @@ def RunAnimation(stored_data, stored_height, E_field, z):
     def animate(i):
         line.set_data(E_field[i],z[1:])
         line2.set_data(stored_data[0][:i],stored_height[0][:i])
-        line3.set_data(stored_data[1][:i],stored_height[1][:i]) #to get this to work, i might be able to make it so payloads launched
+        line3.set_data(stored_data[1][:i],stored_height[1][:i])
+        #to get this to work, i might be able to make it so payloads launched
         #after the first payload have an altitude of zero until their launch time. not sure how to get this to work however
         return line,
     return FuncAnimation(fig, animate, init_func=init, frames=360, interval=75, blit=True)
@@ -128,3 +129,11 @@ def SaveAnimationGif(animation): #Caution: this is experimental
 def SaveAnimationHTML(animation): #Caution: this is experimental. It also does not work
     animationToSave = animation
     animationToSave.save('TestAnimation.html')
+
+def InferCurrent(E_field, z, i, dt): #This is still a work in progress. I'm not even sure what to do with this. i is some generic layer. i could probably find some relationship between layers and height and use that instead of i to make it easier to understand
+    if(E_field[i] > 10 | E_field[i] < -10): #it might be better to somehow use the max() command to find the peak of the current
+        centerGaussian = i #or rather, whatever the altitude at i is. this is dependent on changing the last line to find the maximum
+        deltaE = (E_field[i+1] - E_field[i-1])/dt #there needs to be time somewhere in this... i'm not sure where though
+        width = #who knows...
+        magnitude = #some relation between E and the current gaussian
+    print(magnitude * exp(('z' - centerGaussian)**2 / (2 * width**2))
