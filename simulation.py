@@ -1,9 +1,9 @@
-from numpy import empty,linspace,tri,copy,diff,zeros,interp,exp,sign
+from numpy import empty,linspace,tri,copy,diff,zeros,interp,exp,sign,argmax,max
 import math
 import matplotlib.pyplot as plt
 #import matplotlib.animation as animation
 from matplotlib.animation import FuncAnimation
-#from pandas import loc, iloc
+from pandas import DataFrame
 def RunSimulation(asc_rate, z0, dz, payloads, delay, startTime, dt, I, LightningTimes, LightningMag, LightningPos, LightningWidth):
     t = 0
     jj = 0
@@ -72,6 +72,7 @@ def RunSimulation(asc_rate, z0, dz, payloads, delay, startTime, dt, I, Lightning
         t = t + dt
         
     return(stored_data, stored_height, stored_time, E_field, z)
+
 def RunAnimation(stored_data, stored_height, E_field, z):
     fig = plt.figure()
     ax = plt.axes(xlim=(-2e5,2e5), ylim=(0,16))
@@ -131,19 +132,22 @@ def SaveAnimationHTML(animation): #Caution: this is experimental. It also does n
     animationToSave = animation
     animationToSave.save('TestAnimation.html')
 
-def InferCurrent(stored_data, stored_time, z, dt): #This is still a work in progress. I'm not even sure what to do with this. i is some generic layer. i could probably find some relationship between layers and height and use that instead of i to make it easier to understand
+def InferCurrent(stored_data, stored_height, stored_time): #This is still a work in progress. I'm not even sure what to do with this. i is some generic layer. i could probably find some relationship between layers and height and use that instead of i to make it easier to understand
+    e0 = 8.854187817e-12
     #use stored data from multiple payloads to find some change in electric field over some change in time, deltaE/deltaT is proportional to current density, J
-    #centerGaussian = loc.max(stored_data)
-    #deltaE = (stored_data[i+1] - stored_data[i-1])/dt #there needs to be time somewhere in this... i'm not sure where though
-    #dataE = interp(stored_data, z)#Interpolate payload data at altitude, interpolate time at altitude, use those to figure out e field change
-    #dataTime = interp(stored_time, z)
-    data = interp(stored_data, stored_time, z) #i don't know if this works
-    gaussianPeak = loc.max(dataE)
-    centerGaussian = gaussianPeak['z']
-    dT = gaussianPeak['stored_time'] #i'm not sure what the next timestep would be. i need to somehow bring up the second payload
-    deltaE = gaussianPeak['stored_data']#i don't really know enough about interp to figure out what's going on here...
-    dEdT = deltaE/dT #this should be proportional to the current
-    #width = #i'm not sure how to find the width. full width at half maximum?
-    #magnitude = #should be proportional to the electric field
+    df = DataFrame(list(zip(stored_data[0], stored_time[0], stored_height[0])), columns = ['e', 't', 'z'])
+    df2 = DataFrame(list(zip(stored_data[1], stored_time[1], stored_height[1])), columns = ['e', 't', 'z'])
+    #dataE = interp(stored_data, stored_height)#Interpolate payload data at altitude, interpolate time at altitude, use those to figure out e field change
+    #dataTime = interp(stored_time, stored_height)
+    gaussianPeak = argmax(abs(df['e']))
+    gaussianPeak2 = argmax(abs(df2['e']))
+    gaussianPeakE = - max(abs(df['e']))
+    gaussianPeakE2 = - max(abs(df2['e']))
+    centerGaussian = df.iloc[gaussianPeak]['z']
+    dE = gaussianPeakE2 - gaussianPeakE
+    dT = df2.iloc[gaussianPeak2]['t'] - df.iloc[gaussianPeak]['t'] 
+    dEdT = dE/dT
+    #width = #i'm not sure how to find the width. 
+    magnitude = -e0 * dEdT
     #print(magnitude * exp(('z' - centerGaussian)**2 / (2 * width**2))
-    print(gaussianPeak)
+    print(centerGaussian, dEdT, magnitude)
