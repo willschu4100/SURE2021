@@ -70,7 +70,7 @@ def RunSimulation(asc_rate, z0, dz, payloads, delay, startTime, dt, I, Lightning
                 stored_time[j].append(t)      
         jj = jj + 1  
         t = t + dt
-        
+    #print(stored_data)
     return(stored_data, stored_height, stored_time, E_field, z)
 
 def RunAnimation(stored_data, stored_height, E_field, z):
@@ -132,13 +132,11 @@ def SaveAnimationHTML(animation): #Caution: this is experimental. It also does n
     animationToSave = animation
     animationToSave.save('TestAnimation.html')
 
-def InferCurrent(stored_data, stored_height, stored_time): #This is still a work in progress. I'm not even sure what to do with this. i is some generic layer. i could probably find some relationship between layers and height and use that instead of i to make it easier to understand
+def InferCurrent(stored_data, stored_height, stored_time): 
+    width = 0
     e0 = 8.854187817e-12
-    #use stored data from multiple payloads to find some change in electric field over some change in time, deltaE/deltaT is proportional to current density, J
     df = DataFrame(list(zip(stored_data[0], stored_time[0], stored_height[0])), columns = ['e', 't', 'z'])
     df2 = DataFrame(list(zip(stored_data[1], stored_time[1], stored_height[1])), columns = ['e', 't', 'z'])
-    #dataE = interp(stored_data, stored_height)#Interpolate payload data at altitude, interpolate time at altitude, use those to figure out e field change
-    #dataTime = interp(stored_time, stored_height)
     gaussianPeak = argmax(abs(df['e']))
     gaussianPeak2 = argmax(abs(df2['e']))
     gaussianPeakE = - max(abs(df['e']))
@@ -147,7 +145,15 @@ def InferCurrent(stored_data, stored_height, stored_time): #This is still a work
     dE = gaussianPeakE2 - gaussianPeakE
     dT = df2.iloc[gaussianPeak2]['t'] - df.iloc[gaussianPeak]['t'] 
     dEdT = dE/dT
-    #width = #i'm not sure how to find the width. 
     magnitude = -e0 * dEdT
+    edge = gaussianPeakE - gaussianPeakE *.997 #99.7% of normally distributed variables fall within 3 standard deviations of the mean
+    for i in range(len(df)):
+        if (abs(df.iloc[i]['e']) < abs(edge)) & (df.iloc[i]['z'] < centerGaussian):
+            if (abs(df.iloc[i+1]['e']) > abs(edge)):
+                distance = centerGaussian-df.iloc[i]['z']
+                width = distance/3
+            #if ((df.iloc[i]['e'] < edge) & (df.iloc[i]['z'] < centerGaussian) & (df.iloc[i+1]['e'] > edge)) | ((df.iloc[i]['e'] < edge) & (df.iloc[i]['z'] > centerGaussian) & (df.iloc[i-1]['e'] > edge)):
+                #distance = centerGaussian - df.iloc[i]['z']
+                #width = distance / 3
     #print(magnitude * exp(('z' - centerGaussian)**2 / (2 * width**2))
-    print(centerGaussian, dEdT, magnitude)
+    print(centerGaussian, dEdT, magnitude, width)
