@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 #import matplotlib.animation as animation
 from matplotlib.animation import FuncAnimation
 from pandas import DataFrame
+import scipy.optimize as op
 def RunSimulation(asc_rate, z0, dz, payloads, delay, startTime, dt, I, LightningTimes, LightningMag, LightningPos, LightningWidth):
     t = 0
     jj = 0
@@ -132,28 +133,95 @@ def SaveAnimationHTML(animation): #Caution: this is experimental. It also does n
     animationToSave = animation
     animationToSave.save('TestAnimation.html')
 
-def InferCurrent(stored_data, stored_height, stored_time): 
+def InferCurrent(stored_data, stored_height, stored_time, delay, dt): 
     width = 0
     e0 = 8.854187817e-12
     df = DataFrame(list(zip(stored_data[0], stored_time[0], stored_height[0])), columns = ['e', 't', 'z'])
     df2 = DataFrame(list(zip(stored_data[1], stored_time[1], stored_height[1])), columns = ['e', 't', 'z'])
     gaussianPeak = argmax(abs(df['e']))
-    gaussianPeak2 = argmax(abs(df2['e']))
     gaussianPeakE = - max(abs(df['e']))
     gaussianPeakE2 = - max(abs(df2['e']))
     centerGaussian = df.iloc[gaussianPeak]['z']
     dE = gaussianPeakE2 - gaussianPeakE
-    dT = df2.iloc[gaussianPeak2]['t'] - df.iloc[gaussianPeak]['t'] 
+    dT = df2.iloc[gaussianPeak]['t']+delay - df.iloc[gaussianPeak]['t'] 
     dEdT = dE/dT
     magnitude = -e0 * dEdT
-    edge = gaussianPeakE - gaussianPeakE *.997 #99.7% of normally distributed variables fall within 3 standard deviations of the mean
+    edge = gaussianPeakE - gaussianPeakE * .606 #.9545#.6827 #99.7% of normally distributed variables fall within 3 standard deviations of the mean
     for i in range(len(df)):
+        #print(df2.iloc[i]['e'], df2.iloc[i]['z'])
         if (abs(df.iloc[i]['e']) < abs(edge)) & (df.iloc[i]['z'] < centerGaussian):
             if (abs(df.iloc[i+1]['e']) > abs(edge)):
                 distance = centerGaussian-df.iloc[i]['z']
-                width = distance/3
-            #if ((df.iloc[i]['e'] < edge) & (df.iloc[i]['z'] < centerGaussian) & (df.iloc[i+1]['e'] > edge)) | ((df.iloc[i]['e'] < edge) & (df.iloc[i]['z'] > centerGaussian) & (df.iloc[i-1]['e'] > edge)):
-                #distance = centerGaussian - df.iloc[i]['z']
-                #width = distance / 3
+                width = distance
     #print(magnitude * exp(('z' - centerGaussian)**2 / (2 * width**2))
-    print(centerGaussian, dEdT, magnitude, width)
+    print(centerGaussian, dEdT, magnitude, width, gaussianPeak)
+    return(centerGaussian, magnitude, width)
+
+def Infer2Currents(stored_data, stored_height, stored_time, delay, dt): 
+    width = 0
+    e0 = 8.854187817e-12
+    df = DataFrame(list(zip(stored_data[0], stored_time[0], stored_height[0])), columns = ['e', 't', 'z'])
+    df2 = DataFrame(list(zip(stored_data[1], stored_time[1], stored_height[1])), columns = ['e', 't', 'z'])
+    gaussianPeakNegative = argmax(abs(df['e']))
+    gaussianPeakPositive = argmax(df['e'])
+    gaussianPeakNegativeE = - max(abs(df['e']))
+    gaussianPeakNegativeE2 = - max(abs(df2['e']))
+    gaussianPeakPositiveE = max(df['e'])
+    gaussianPeakPositiveE2 = max(df2['e'])
+    centerGaussianNegative = df.iloc[gaussianPeakNegative]['z']
+    centerGaussianPositive = df.iloc[gaussianPeakPositive]['z']
+    dE = gaussianPeakNegativeE2 - gaussianPeakNegativeE
+    dEPositive = gaussianPeakPositiveE2 - gaussianPeakPositiveE
+    dT = df2.iloc[gaussianPeakNegative]['t']+delay - df.iloc[gaussianPeakNegative]['t'] 
+    dTPositive = df2.iloc[gaussianPeakPositive]['t']+delay - df.iloc[gaussianPeakPositive]['t']
+    dEdT = dE/dT
+    dEdTPositive = dEPositive / dTPositive
+    magnitude = -e0 * dEdT
+    magnitudePositive = -e0 * dEdTPositive
+    edge = gaussianPeakNegativeE - gaussianPeakNegativeE * .6827 #.9545#.6827 #99.7% of normally distributed variables fall within 3 standard deviations of the mean
+    edgePositive = gaussianPeakPositiveE - gaussianPeakPositiveE * .6827
+    for i in range(len(df)):
+        if (df.iloc[i]['e'] > edge) & (df.iloc[i]['z'] < centerGaussianNegative):
+            if (df.iloc[i+1]['e'] < edge):
+                distance = centerGaussianNegative-df.iloc[i]['z']
+                width = distance
+    for i in range(len(df)):
+        if (df.iloc[i]['e'] < edgePositive) & (df.iloc[i]['z'] > centerGaussianPositive):
+            if (df.iloc[i-1]['e'] > edgePositive):
+                distancePositive = df.iloc[i]['z'] - centerGaussianPositive
+                widthPositive = distancePositive
+    print(centerGaussianNegative, magnitude, width, centerGaussianPositive, magnitudePositive, widthPositive)
+    return(centerGaussianNegative, magnitude, width, centerGaussianPositive, magnitudePositive, widthPositive)
+
+
+
+def CurrentAltitude(stored_data, stored_height, stored_time, delay):
+    e0 = 8.854187817e-12
+    I = []
+    #df = DataFrame(list(zip(stored_data[0], stored_data[1], stored_time[0], stored_time[1], stored_height[0], stored_height[1])), columns = ['e', 'e2', 't', 't2', 'z', 'z2'])
+    df1 = DataFrame(list(zip(stored_data[0], stored_time[0], stored_height[0])), columns = ['e', 't', 'z'])
+    df2 = DataFrame(list(zip(stored_data[1], stored_time[1], stored_height[1])), columns = ['e', 't', 'z'])
+    for i in range(len(df2)-30):
+        I.append(-e0 * (df2.iloc[i+30]['e'] - df1.iloc[i]['e']) / delay)
+    #df['I'] = -e0 * (df['e2'] - df['e']) / (delay)
+    return I
+
+
+def CurveFit(stored_data, stored_height, delay, asc_rate, z0, dz, payloads, startTime, dt, LightningTimes, LightningMag, LightningPos, LightningWidth, guessMagLower, guessWidthLower, guessLocLower, guessMagMid, guessWidthMid, guessLocMid, guessMagHigh, guessWidthHigh, guessLocHigh):
+    def FitSim(x, mag, width, loc, mag2, width2, loc2, mag3, width3, loc3):
+        def myI(zz):
+            return mag*exp(-(zz-loc)**2/width) + mag2*exp(-(zz-loc2)**2/width2) + mag3*exp(-(zz-loc3)**2/width3)
+        data, a, b, c, d = RunSimulation(asc_rate, z0, dz, payloads, delay, startTime, dt, myI, LightningTimes, LightningMag, LightningPos, LightningWidth)
+        return data[0]
+    #return FitSim(0, 5e-10, .5, 5.7)
+    ans= op.curve_fit(FitSim, stored_height[0], stored_data[0], p0 = [guessMagLower, guessWidthLower, guessLocLower, guessMagMid, guessWidthMid, guessLocMid, guessMagHigh, guessWidthHigh, guessLocHigh])
+    fit = ans[0][0]
+    fit2 = ans[0][1]
+    fit3 = ans[0][2]
+    fit4 = ans[0][3]
+    fit5 = ans[0][4]
+    fit6 = ans[0][5]
+    fit7 = ans[0][6]
+    fit8 = ans[0][7]
+    fit9 = ans[0][8]
+    return plt.plot(stored_height[0], FitSim(stored_height[0], fit, fit2, fit3, fit4, fit5, fit6, fit7, fit8, fit9))
