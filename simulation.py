@@ -1,4 +1,4 @@
-from numpy import empty,linspace,tri,copy,diff,zeros,interp,exp,sign,argmax,max
+from numpy import empty,linspace,tri,copy,diff,zeros,interp,exp,sign,argmax,max, array
 import math
 import matplotlib.pyplot as plt
 #import matplotlib.animation as animation
@@ -39,6 +39,7 @@ def RunSimulation(asc_rate, z0, dz, payloads, delay, startTime, dt, I, Lightning
                 lightning_dis = -mag * 1e-8 * exp(-(z - z[i])**2/(2*width**2))
                 sigma[:] = sigma - sign(E[i]) * diff(lightning_dis)
                 E = calcField(sigma)
+                #print("lightning")
                 break
     sigma = - diff(I) * delay #this sometimes behaves strangely in the animation
     while t < tmax:
@@ -57,12 +58,12 @@ def RunSimulation(asc_rate, z0, dz, payloads, delay, startTime, dt, I, Lightning
         sigma_array.append(copy(sigma))
         balloon_data = empty((tmax-delay)//dt)
         for j in range(payloads):
-            if t < release_time[j][0]:
-                balloon_data[j] = 0
-                balloon_z[j] = 0
-                stored_data[j].append(balloon_data[j])
-                stored_height[j].append(balloon_z[j])
-                stored_time[j].append(t)
+            #if t < release_time[j][0]:
+                #balloon_data[j] = 0
+                #balloon_z[j] = 0
+                #stored_data[j].append(balloon_data[j])
+                #stored_height[j].append(balloon_z[j])
+                #stored_time[j].append(t)
             if t > release_time[j][0]:
                 balloon_data[j] = interp(balloon_z[j],z[1:],E_field[jj])
                 balloon_z[j] = balloon_z[j] + asc_rate*dt
@@ -76,28 +77,31 @@ def RunSimulation(asc_rate, z0, dz, payloads, delay, startTime, dt, I, Lightning
 
 def RunAnimation(stored_data, stored_height, E_field, z):
     fig = plt.figure()
-    ax = plt.axes(xlim=(-2e5,2e5), ylim=(0,16))
-    line, = ax.plot([], [], lw=2)
-    line2, = ax.plot([], [], lw=2)
-    line3, = ax.plot([], [], lw=2)
+    ax = plt.axes(xlim=(-140000,45000), ylim=(stored_height[0][0],11))
+    line, = ax.plot([], [], lw=2, label = "Electric Field")
+    line2, = ax.plot([], [], lw=2, label = "Payload Data")
+    #line3, = ax.plot([], [], lw=2)
     #plot(threshold, z[1:])
     #plot(-threshold, z[1:])
     plt.xlabel("E (V/m)")
     plt.ylabel("Altitude (km)")
     plt.close()
+    plt.legend(loc="upper left")
     def init():
         line.set_data([], [])
+        line.set_color("orange")
         line2.set_data([], [])
-        line3.set_data([], [])
+        line2.set_color("blue")
+        #line3.set_data([], [])
         return line,
     def animate(i):
         line.set_data(E_field[i],z[1:])
         line2.set_data(stored_data[0][:i],stored_height[0][:i])
-        line3.set_data(stored_data[1][:i],stored_height[1][:i])
+        #line3.set_data(stored_data[1][:i],stored_height[1][:i])
         #to get this to work, i might be able to make it so payloads launched
         #after the first payload have an altitude of zero until their launch time. not sure how to get this to work however
         return line,
-    return FuncAnimation(fig, animate, init_func=init, frames=360, interval=75, blit=True)
+    return FuncAnimation(fig, animate, init_func=init, frames=260, interval=75, blit=True)
 #to animate multiple payloads, set payload data as a list of payload data. loop over list, make plots for each, store results
 #this probably isn't worth it however
 def MakePlots(stored_data, stored_height, stored_time, payloads):
@@ -195,16 +199,40 @@ def Infer2Currents(stored_data, stored_height, stored_time, delay, dt):
 
 
 
-def CurrentAltitude(stored_data, stored_height, stored_time, delay):
+def CurrentAltitude(stored_data, stored_height, stored_time, delay, dt, asc_rate, LightningTimes):
     e0 = 8.854187817e-12
     I = []
     #df = DataFrame(list(zip(stored_data[0], stored_data[1], stored_time[0], stored_time[1], stored_height[0], stored_height[1])), columns = ['e', 'e2', 't', 't2', 'z', 'z2'])
     df1 = DataFrame(list(zip(stored_data[0], stored_time[0], stored_height[0])), columns = ['e', 't', 'z'])
     df2 = DataFrame(list(zip(stored_data[1], stored_time[1], stored_height[1])), columns = ['e', 't', 'z'])
-    for i in range(len(df2)-30):
-        I.append(-e0 * (df2.iloc[i+30]['e'] - df1.iloc[i]['e']) / delay)
-    #df['I'] = -e0 * (df['e2'] - df['e']) / (delay)
-    return I
+    for i in range(len(df2)):
+        pos1 = 0
+        pos2 = 0
+        current1 = 0
+        current2 = 0
+        for j in range(len(LightningTimes)):
+            for k in range(len(df1)):
+                if(df1.iloc[k]['t'] > LightningTimes[j]):
+                    pos1 = df1.iloc[k]['z']
+                    current1 = k-1
+                    break
+            for l in range(len(df2)):
+                if(df2.iloc[l]['t'] > LightningTimes[j]):
+                    pos2 = df2.iloc[l]['z']
+                    current2 = l-1
+                    break
+        if((df2.iloc[i]['z'] < pos2) | (df2.iloc[i]['z'] >= pos1)):
+            I.append(-e0 * (df2.iloc[i]['e'] - df1.iloc[i]['e']) / delay)
+        else:
+            I.append(0)
+        #if((df2.iloc[i]['z'] >= pos2) & (df2.iloc[i]['z'] < pos1)):
+            #I.append(0)
+        #else:
+            #I.append(-e0 * (df2.iloc[i]['e'] - df1.iloc[i]['e']) / delay)
+    z = linspace(0, len(df1)*asc_rate*dt, len(df2))
+    plt.plot(z, I, label = "Inferred Current")
+    print(len(df1))
+    #return df1, df2
 
 
 def CurveFit(stored_data, stored_height, delay, asc_rate, z0, dz, payloads, startTime, dt, LightningTimes, LightningMag, LightningPos, LightningWidth, guessMagLower, guessWidthLower, guessLocLower, guessMagMid, guessWidthMid, guessLocMid, guessMagHigh, guessWidthHigh, guessLocHigh):
@@ -225,3 +253,36 @@ def CurveFit(stored_data, stored_height, delay, asc_rate, z0, dz, payloads, star
     fit8 = ans[0][7]
     fit9 = ans[0][8]
     return plt.plot(stored_height[0], FitSim(stored_height[0], fit, fit2, fit3, fit4, fit5, fit6, fit7, fit8, fit9))
+
+def CurveFitLightning(stored_data, stored_height, delay, asc_rate, z0, dz, payloads, startTime, dt, LightningTimes, LightningMag, LightningPos, LightningWidth, guessMagLower, guessWidthLower, guessLocLower, guessMagMid, guessWidthMid, guessLocMid, guessMagHigh, guessWidthHigh, guessLocHigh):
+    Ltime = LightningTimes
+    Lmag = LightningMag
+    Lpos = LightningPos
+    Lwidth = LightningWidth
+    def FitSim(x, mag, width, loc, mag2, width2, loc2, mag3, width3, loc3, LightningMag, LightningPos, LightningWidth):
+        def myI(zz):
+            return mag*exp(-(zz-loc)**2/width) + mag2*exp(-(zz-loc2)**2/width2) + mag3*exp(-(zz-loc3)**2/width3)
+        #print("sim")
+        LightningTimes = Ltime
+        LightningMag = Lmag
+        LightningPos = Lpos
+        LightningWidth = Lwidth
+        data, a, b, c, d = RunSimulation(asc_rate, z0, dz, payloads, delay, startTime, dt, myI, [LightningTimes], [LightningMag], [LightningPos], [LightningWidth])
+        #print("sim done")
+        return data[0]
+    ans= op.curve_fit(FitSim, stored_height[0], stored_data[0], p0 = [guessMagLower, guessWidthLower, guessLocLower, guessMagMid, guessWidthMid, guessLocMid, guessMagHigh, guessWidthHigh, guessLocHigh, LightningMag, LightningPos, LightningWidth])
+    fit = ans[0][0]
+    fit2 = ans[0][1]
+    fit3 = ans[0][2]
+    fit4 = ans[0][3]
+    fit5 = ans[0][4]
+    fit6 = ans[0][5]
+    fit7 = ans[0][6]
+    fit8 = ans[0][7]
+    fit9 = ans[0][8]
+    fit10 = ans[0][9]
+    fit11 = ans[0][10]
+    fit12 = ans[0][11]
+    print(fit, fit2, fit3, fit4, fit5, fit6, fit7, fit8, fit9, fit10, fit11, fit12)
+    return plt.plot(stored_height[0], FitSim(stored_height[0], fit, fit2, fit3, fit4, fit5, fit6, fit7, fit8, fit9, fit10, fit11, fit12))
+    
