@@ -31,7 +31,7 @@ def RunSimulation(asc_rate, z0, dz, payloads, delay, startTime, dt, I, Lightning
     sigma = zeros(n)
     E_field = []
     sigma_array = []
-    
+    correctionFactor = [] #not sure how this will work yet. the contents of the list would probably be [factor, pos][factor2, pos2], etc
     def TimeDischarge(sigma, E, pos, mag, width):
         for i in range(n):
             if(z[i] >= pos):
@@ -39,13 +39,16 @@ def RunSimulation(asc_rate, z0, dz, payloads, delay, startTime, dt, I, Lightning
                 lightning_dis = -mag * 1e-8 * exp(-(z - z[i])**2/(2*width**2))
                 sigma[:] = sigma - sign(E[i]) * diff(lightning_dis)
                 E = calcField(sigma)
+                #correctionFactor.append() #no idea what this should be, but this seems like the most logical placement
                 #print("lightning")
                 break
-    sigma = - diff(I) * delay #this sometimes behaves strangely in the animation
+    sigma = - diff(I) * delay
     while t < tmax:
+        #print(sigma)
         sigma = sigma - diff(I)*dt
         E = calcField(sigma)
         E_field.append(copy(E))
+        #print(E_field)
         i = 0    
         for i in range (len(LightningTimes)):
             if t >= LightningTimes[i]:
@@ -56,12 +59,13 @@ def RunSimulation(asc_rate, z0, dz, payloads, delay, startTime, dt, I, Lightning
                 LightningWidth.pop(i)
                 break
         sigma_array.append(copy(sigma))
+        print(sigma_array)
         balloon_data = empty((tmax-delay)//dt)
         for j in range(payloads):
-            #if t < release_time[j][0]:
-                #balloon_data[j] = 0
-                #balloon_z[j] = 0
-                #stored_data[j].append(balloon_data[j])
+            #if t < release_time[j][0]: #this is used to make payload 1 and 2 have the same timesteps. not very useful
+             #   balloon_data[j] = 0
+              #  balloon_z[j] = 0
+               # stored_data[j].append(balloon_data[j])
                 #stored_height[j].append(balloon_z[j])
                 #stored_time[j].append(t)
             if t > release_time[j][0]:
@@ -80,7 +84,7 @@ def RunAnimation(stored_data, stored_height, E_field, z):
     ax = plt.axes(xlim=(-140000,45000), ylim=(stored_height[0][0],11))
     line, = ax.plot([], [], lw=2, label = "Electric Field")
     line2, = ax.plot([], [], lw=2, label = "Payload Data")
-    #line3, = ax.plot([], [], lw=2)
+    line3, = ax.plot([], [], lw=2)
     #plot(threshold, z[1:])
     #plot(-threshold, z[1:])
     plt.xlabel("E (V/m)")
@@ -92,23 +96,17 @@ def RunAnimation(stored_data, stored_height, E_field, z):
         line.set_color("orange")
         line2.set_data([], [])
         line2.set_color("blue")
-        #line3.set_data([], [])
+        line3.set_data([], [])
         return line,
     def animate(i):
         line.set_data(E_field[i],z[1:])
         line2.set_data(stored_data[0][:i],stored_height[0][:i])
-        #line3.set_data(stored_data[1][:i],stored_height[1][:i])
-        #to get this to work, i might be able to make it so payloads launched
-        #after the first payload have an altitude of zero until their launch time. not sure how to get this to work however
+        line3.set_data(stored_data[1][:i],stored_height[1][:i]) #this animates multiple payloads. there's probably a better way to do it
         return line,
     return FuncAnimation(fig, animate, init_func=init, frames=260, interval=75, blit=True)
-#to animate multiple payloads, set payload data as a list of payload data. loop over list, make plots for each, store results
-#this probably isn't worth it however
 def MakePlots(stored_data, stored_height, stored_time, payloads):
     for j in range(payloads):
         plt.plot(stored_data[j],stored_height[j], label="Payload " + str(j+1))
-        #plt2=plt.twinx(plt)
-        #plt2.plot(stored_data[j],stored_time[j])
     plt.xlabel("E (V/m)")
     plt.ylabel("Altitude (km)")
     plt.legend(loc="upper left")
@@ -130,14 +128,11 @@ def MakePlotsReversed(stored_data, stored_height, stored_time, payloads):
     plt.legend(loc="upper left")
     plt.xlim(stored_height[0][0],11)
     plt.axes().set_aspect(1/30000)
-def SaveAnimationGif(animation): #Caution: this is experimental
+def SaveAnimationGif(animation):
     animationToSave = animation
     animationToSave.save('TestAnimation.gif')
-def SaveAnimationHTML(animation): #Caution: this is experimental. It also does not work
-    animationToSave = animation
-    animationToSave.save('TestAnimation.html')
 
-def InferCurrent(stored_data, stored_height, stored_time, delay, dt): 
+def InferCurrent(stored_data, stored_height, stored_time, delay, dt): #this is useless. delete?
     width = 0
     e0 = 8.854187817e-12
     df = DataFrame(list(zip(stored_data[0], stored_time[0], stored_height[0])), columns = ['e', 't', 'z'])
@@ -161,7 +156,7 @@ def InferCurrent(stored_data, stored_height, stored_time, delay, dt):
     print(centerGaussian, dEdT, magnitude, width, gaussianPeak)
     return(centerGaussian, magnitude, width)
 
-def Infer2Currents(stored_data, stored_height, stored_time, delay, dt): 
+def Infer2Currents(stored_data, stored_height, stored_time, delay, dt): #this is also useless. delete?
     width = 0
     e0 = 8.854187817e-12
     df = DataFrame(list(zip(stored_data[0], stored_time[0], stored_height[0])), columns = ['e', 't', 'z'])
@@ -199,41 +194,112 @@ def Infer2Currents(stored_data, stored_height, stored_time, delay, dt):
 
 
 
-def CurrentAltitude(stored_data, stored_height, stored_time, delay, dt, asc_rate, LightningTimes):
+def CurrentAltitude(stored_data, stored_height, stored_time, delay, dt, asc_rate, LightningTimes): #this is actually important
     e0 = 8.854187817e-12
+    n = 10
     I = []
-    #df = DataFrame(list(zip(stored_data[0], stored_data[1], stored_time[0], stored_time[1], stored_height[0], stored_height[1])), columns = ['e', 'e2', 't', 't2', 'z', 'z2'])
+    #df = DataFrame(list(zip(stored_data[0], stored_data[1], stored_time[0], stored_time[1], stored_height[0], stored_height[1])), columns = ['e', 'e2', 't', 't2', 'z', 'z2']) combining both payloads into one dataset. probably not helpful
     df1 = DataFrame(list(zip(stored_data[0], stored_time[0], stored_height[0])), columns = ['e', 't', 'z'])
+    for a in range(int(delay/dt)):
+        df1 = df1.iloc[:-1, :]
     df2 = DataFrame(list(zip(stored_data[1], stored_time[1], stored_height[1])), columns = ['e', 't', 'z'])
-    for i in range(len(df2)):
-        pos1 = 0
-        pos2 = 0
-        current1 = 0
-        current2 = 0
-        for j in range(len(LightningTimes)):
-            for k in range(len(df1)):
+    current1=0
+    pos1=0
+    current2=0
+    pos2=0
+    for j in range(len(LightningTimes)):
+        for k in range(len(df1)):
                 if(df1.iloc[k]['t'] > LightningTimes[j]):
-                    pos1 = df1.iloc[k]['z']
-                    current1 = k-1
+                    pos1 = round(df1.iloc[k]['z'], 4)
+                    current1 = k - 1
+                    #print(pos1)
+                    #print(current1)
                     break
-            for l in range(len(df2)):
+        for l in range(len(df2)):
                 if(df2.iloc[l]['t'] > LightningTimes[j]):
-                    pos2 = df2.iloc[l]['z']
-                    current2 = l-1
+                    pos2 = round(df2.iloc[l]['z'], 4)
+                    #print(pos2)
+                    #current2 = int(current1 - delay/dt)
+                    #current2 = df1.loc[[df1['z'] == pos2]]['t']/dt
+                    current2 = l - 1
+                    #print(current2)
                     break
-        if((df2.iloc[i]['z'] < pos2) | (df2.iloc[i]['z'] >= pos1)):
-            I.append(-e0 * (df2.iloc[i]['e'] - df1.iloc[i]['e']) / delay)
-        else:
-            I.append(0)
-        #if((df2.iloc[i]['z'] >= pos2) & (df2.iloc[i]['z'] < pos1)):
+    for i in range(len(df2)):
+        I.append(-e0 * (df2.iloc[i]['e'] - df1.iloc[i]['e']) / delay)
+        #if((df2.iloc[i]['z'] < pos2) | (df2.iloc[i]['z'] >= pos1)):
+            #I.append(-e0 * (df2.iloc[i]['e'] - df1.iloc[i]['e']) / delay)
+        #else:
             #I.append(0)
+    for m in range(len(I)):
+        if((df2.iloc[m]['z'] >= pos2) & (df2.iloc[m]['z'] < pos1)):
+            numLayers = current2-current1
+            #print(numLayers)
+            #print(len(I), len(df2))
+            #print(len(I))
+            deltaI = (I[current1+1]-I[current2]) / (numLayers-1)
+            #print(deltaI)
+            #print(m, current2)
+            print(I[m])
+            I[m] = I[m-1] - deltaI
+            print(I[m-1], '-', deltaI, '=', I[m])
+            #if n > 0:
+             #   I[m] = I[current2] - (I[current1] / (10 - (n - 1)))
+              #  n = n-1
         #else:
             #I.append(-e0 * (df2.iloc[i]['e'] - df1.iloc[i]['e']) / delay)
+    #print(len(I))
     z = linspace(0, len(df1)*asc_rate*dt, len(df2))
     plt.plot(z, I, label = "Inferred Current")
-    print(len(df1))
+    #print(len(df1), len(I))
     #return df1, df2
 
+def CurrentAltitudeCorrection(stored_data, stored_height, stored_time, delay, dt, asc_rate, LightningTimes): #this is actually important
+    e0 = 8.854187817e-12
+    n = 10
+    I = []
+    #df = DataFrame(list(zip(stored_data[0], stored_data[1], stored_time[0], stored_time[1], stored_height[0], stored_height[1])), columns = ['e', 'e2', 't', 't2', 'z', 'z2']) combining both payloads into one dataset. probably not helpful
+    df1 = DataFrame(list(zip(stored_data[0], stored_time[0], stored_height[0])), columns = ['e', 't', 'z'])
+    for a in range(int(delay/dt)):
+        df1 = df1.iloc[:-1, :]
+    df2 = DataFrame(list(zip(stored_data[1], stored_time[1], stored_height[1])), columns = ['e', 't', 'z'])
+    current1=0
+    pos1=0
+    current2=0
+    pos2=0
+    for j in range(len(LightningTimes)):
+        for k in range(len(df1)):
+                if(df1.iloc[k]['t'] > LightningTimes[j]):
+                    pos1 = round(df1.iloc[k]['z'], 4)
+                    current1 = k - 1
+                    #print(pos1)
+                    #print(current1)
+                    break
+        for l in range(len(df2)):
+                if(df2.iloc[l]['t'] > LightningTimes[j]):
+                    pos2 = round(df2.iloc[l]['z'], 4)
+                    #print(pos2)
+                    #current2 = int(current1 - delay/dt)
+                    #current2 = df1.loc[[df1['z'] == pos2]]['t']/dt
+                    current2 = l - 1
+                    #print(current2)
+                    break
+    for i in range(len(df2)):
+        I.append(-e0 * (df2.iloc[i]['e'] - df1.iloc[i]['e']) / delay)
+    for m in range(len(I)):
+        if((df2.iloc[m]['z'] >= pos2) & (df2.iloc[m]['z'] < pos1)):
+            #if correction factor involves some relation to lightning strike magnitude, include it here, and then convert to current
+            # currentCorrection = correctionFactor with some relation to current
+            currentCorrection = 0
+            I[m] = I[m] + currentCorrection
+            print(I[m-1], '-', deltaI, '=', I[m])
+            #if n > 0:
+             #   I[m] = I[current2] - (I[current1] / (10 - (n - 1)))
+              #  n = n-1
+        #else:
+            #I.append(-e0 * (df2.iloc[i]['e'] - df1.iloc[i]['e']) / delay)
+    #print(len(I))
+    z = linspace(0, len(df1)*asc_rate*dt, len(df2))
+    plt.plot(z, I, label = "Inferred Current")
 
 def CurveFit(stored_data, stored_height, delay, asc_rate, z0, dz, payloads, startTime, dt, LightningTimes, LightningMag, LightningPos, LightningWidth, guessMagLower, guessWidthLower, guessLocLower, guessMagMid, guessWidthMid, guessLocMid, guessMagHigh, guessWidthHigh, guessLocHigh):
     def FitSim(x, mag, width, loc, mag2, width2, loc2, mag3, width3, loc3):
