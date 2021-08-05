@@ -37,7 +37,11 @@ def RunSimulation(asc_rate, z0, dz, payloads, delay, startTime, dt, I, Lightning
             if(z[i] >= pos):
                 #lightning_dis = -mag * 1e-8 * exp(-width*(z - z[i])**2)
                 lightning_dis = -mag * 1e-8 * exp(-(z - z[i])**2/(2*width**2))
-                sigma[:] = sigma - sign(E[i]) * diff(lightning_dis)
+                if(E[i] == 0):
+                    sigma[:] = sigma - diff(lightning_dis)
+                elif(E[i] != 0):
+                    sigma[:] = sigma - sign(E[i]) * diff(lightning_dis)
+                
                 E = calcField(sigma)
                 #correctionFactor.append() #no idea what this should be, but this seems like the most logical placement
                 #print("lightning")
@@ -59,7 +63,7 @@ def RunSimulation(asc_rate, z0, dz, payloads, delay, startTime, dt, I, Lightning
                 LightningWidth.pop(i)
                 break
         sigma_array.append(copy(sigma))
-        print(sigma_array)
+        #print(sigma_array)
         balloon_data = empty((tmax-delay)//dt)
         for j in range(payloads):
             #if t < release_time[j][0]: #this is used to make payload 1 and 2 have the same timesteps. not very useful
@@ -233,21 +237,10 @@ def CurrentAltitude(stored_data, stored_height, stored_time, delay, dt, asc_rate
     for m in range(len(I)):
         if((df2.iloc[m]['z'] >= pos2) & (df2.iloc[m]['z'] < pos1)):
             numLayers = current2-current1
-            #print(numLayers)
-            #print(len(I), len(df2))
-            #print(len(I))
             deltaI = (I[current1+1]-I[current2]) / (numLayers-1)
-            #print(deltaI)
-            #print(m, current2)
-            print(I[m])
-            I[m] = I[m-1] - deltaI
+            print("I[",m,"]", "=", I[m])
             print(I[m-1], '-', deltaI, '=', I[m])
-            #if n > 0:
-             #   I[m] = I[current2] - (I[current1] / (10 - (n - 1)))
-              #  n = n-1
-        #else:
-            #I.append(-e0 * (df2.iloc[i]['e'] - df1.iloc[i]['e']) / delay)
-    #print(len(I))
+            I[m] = I[m-1] - deltaI
     z = linspace(0, len(df1)*asc_rate*dt, len(df2))
     plt.plot(z, I, label = "Inferred Current")
     #print(len(df1), len(I))
@@ -257,7 +250,6 @@ def CurrentAltitudeCorrection(stored_data, stored_height, stored_time, delay, dt
     e0 = 8.854187817e-12
     n = 10
     I = []
-    #df = DataFrame(list(zip(stored_data[0], stored_data[1], stored_time[0], stored_time[1], stored_height[0], stored_height[1])), columns = ['e', 'e2', 't', 't2', 'z', 'z2']) combining both payloads into one dataset. probably not helpful
     df1 = DataFrame(list(zip(stored_data[0], stored_time[0], stored_height[0])), columns = ['e', 't', 'z'])
     for a in range(int(delay/dt)):
         df1 = df1.iloc[:-1, :]
@@ -285,19 +277,12 @@ def CurrentAltitudeCorrection(stored_data, stored_height, stored_time, delay, dt
                     break
     for i in range(len(df2)):
         I.append(-e0 * (df2.iloc[i]['e'] - df1.iloc[i]['e']) / delay)
-    for m in range(len(I)):
-        if((df2.iloc[m]['z'] >= pos2) & (df2.iloc[m]['z'] < pos1)):
+    #for m in range(len(I)):
+        #if((df2.iloc[m]['z'] >= pos2) & (df2.iloc[m]['z'] < pos1)):
             #if correction factor involves some relation to lightning strike magnitude, include it here, and then convert to current
             # currentCorrection = correctionFactor with some relation to current
-            currentCorrection = 0
-            I[m] = I[m] + currentCorrection
-            print(I[m-1], '-', deltaI, '=', I[m])
-            #if n > 0:
-             #   I[m] = I[current2] - (I[current1] / (10 - (n - 1)))
-              #  n = n-1
-        #else:
-            #I.append(-e0 * (df2.iloc[i]['e'] - df1.iloc[i]['e']) / delay)
-    #print(len(I))
+            #currentCorrection = 0
+            #I[m] = I[m] + currentCorrection
     z = linspace(0, len(df1)*asc_rate*dt, len(df2))
     plt.plot(z, I, label = "Inferred Current")
 
