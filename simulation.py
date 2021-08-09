@@ -31,7 +31,7 @@ def RunSimulation(asc_rate, z0, dz, payloads, delay, startTime, dt, I, Lightning
     sigma = zeros(n)
     E_field = []
     sigma_array = []
-    correctionFactor = [] #not sure how this will work yet. the contents of the list would probably be [factor, pos][factor2, pos2], etc
+    #correctionFactor = [] #not sure how this will work yet. the contents of the list would probably be [factor, pos][factor2, pos2], etc
     def TimeDischarge(sigma, E, pos, mag, width):
         for i in range(n):
             if(z[i] >= pos):
@@ -136,73 +136,11 @@ def SaveAnimationGif(animation):
     animationToSave = animation
     animationToSave.save('TestAnimation.gif')
 
-def InferCurrent(stored_data, stored_height, stored_time, delay, dt): #this is useless. delete?
-    width = 0
-    e0 = 8.854187817e-12
-    df = DataFrame(list(zip(stored_data[0], stored_time[0], stored_height[0])), columns = ['e', 't', 'z'])
-    df2 = DataFrame(list(zip(stored_data[1], stored_time[1], stored_height[1])), columns = ['e', 't', 'z'])
-    gaussianPeak = argmax(abs(df['e']))
-    gaussianPeakE = - max(abs(df['e']))
-    gaussianPeakE2 = - max(abs(df2['e']))
-    centerGaussian = df.iloc[gaussianPeak]['z']
-    dE = gaussianPeakE2 - gaussianPeakE
-    dT = df2.iloc[gaussianPeak]['t']+delay - df.iloc[gaussianPeak]['t'] 
-    dEdT = dE/dT
-    magnitude = -e0 * dEdT
-    edge = gaussianPeakE - gaussianPeakE * .606 #.9545#.6827 #99.7% of normally distributed variables fall within 3 standard deviations of the mean
-    for i in range(len(df)):
-        #print(df2.iloc[i]['e'], df2.iloc[i]['z'])
-        if (abs(df.iloc[i]['e']) < abs(edge)) & (df.iloc[i]['z'] < centerGaussian):
-            if (abs(df.iloc[i+1]['e']) > abs(edge)):
-                distance = centerGaussian-df.iloc[i]['z']
-                width = distance
-    #print(magnitude * exp(('z' - centerGaussian)**2 / (2 * width**2))
-    print(centerGaussian, dEdT, magnitude, width, gaussianPeak)
-    return(centerGaussian, magnitude, width)
-
-def Infer2Currents(stored_data, stored_height, stored_time, delay, dt): #this is also useless. delete?
-    width = 0
-    e0 = 8.854187817e-12
-    df = DataFrame(list(zip(stored_data[0], stored_time[0], stored_height[0])), columns = ['e', 't', 'z'])
-    df2 = DataFrame(list(zip(stored_data[1], stored_time[1], stored_height[1])), columns = ['e', 't', 'z'])
-    gaussianPeakNegative = argmax(abs(df['e']))
-    gaussianPeakPositive = argmax(df['e'])
-    gaussianPeakNegativeE = - max(abs(df['e']))
-    gaussianPeakNegativeE2 = - max(abs(df2['e']))
-    gaussianPeakPositiveE = max(df['e'])
-    gaussianPeakPositiveE2 = max(df2['e'])
-    centerGaussianNegative = df.iloc[gaussianPeakNegative]['z']
-    centerGaussianPositive = df.iloc[gaussianPeakPositive]['z']
-    dE = gaussianPeakNegativeE2 - gaussianPeakNegativeE
-    dEPositive = gaussianPeakPositiveE2 - gaussianPeakPositiveE
-    dT = df2.iloc[gaussianPeakNegative]['t']+delay - df.iloc[gaussianPeakNegative]['t'] 
-    dTPositive = df2.iloc[gaussianPeakPositive]['t']+delay - df.iloc[gaussianPeakPositive]['t']
-    dEdT = dE/dT
-    dEdTPositive = dEPositive / dTPositive
-    magnitude = -e0 * dEdT
-    magnitudePositive = -e0 * dEdTPositive
-    edge = gaussianPeakNegativeE - gaussianPeakNegativeE * .6827 #.9545#.6827 #99.7% of normally distributed variables fall within 3 standard deviations of the mean
-    edgePositive = gaussianPeakPositiveE - gaussianPeakPositiveE * .6827
-    for i in range(len(df)):
-        if (df.iloc[i]['e'] > edge) & (df.iloc[i]['z'] < centerGaussianNegative):
-            if (df.iloc[i+1]['e'] < edge):
-                distance = centerGaussianNegative-df.iloc[i]['z']
-                width = distance
-    for i in range(len(df)):
-        if (df.iloc[i]['e'] < edgePositive) & (df.iloc[i]['z'] > centerGaussianPositive):
-            if (df.iloc[i-1]['e'] > edgePositive):
-                distancePositive = df.iloc[i]['z'] - centerGaussianPositive
-                widthPositive = distancePositive
-    print(centerGaussianNegative, magnitude, width, centerGaussianPositive, magnitudePositive, widthPositive)
-    return(centerGaussianNegative, magnitude, width, centerGaussianPositive, magnitudePositive, widthPositive)
-
-
 
 def CurrentAltitude(stored_data, stored_height, stored_time, delay, dt, asc_rate, LightningTimes): #this is actually important
     e0 = 8.854187817e-12
     n = 10
     I = []
-    #df = DataFrame(list(zip(stored_data[0], stored_data[1], stored_time[0], stored_time[1], stored_height[0], stored_height[1])), columns = ['e', 'e2', 't', 't2', 'z', 'z2']) combining both payloads into one dataset. probably not helpful
     df1 = DataFrame(list(zip(stored_data[0], stored_time[0], stored_height[0])), columns = ['e', 't', 'z'])
     for a in range(int(delay/dt)):
         df1 = df1.iloc[:-1, :]
@@ -230,10 +168,6 @@ def CurrentAltitude(stored_data, stored_height, stored_time, delay, dt, asc_rate
                     break
     for i in range(len(df2)):
         I.append(-e0 * (df2.iloc[i]['e'] - df1.iloc[i]['e']) / delay)
-        #if((df2.iloc[i]['z'] < pos2) | (df2.iloc[i]['z'] >= pos1)):
-            #I.append(-e0 * (df2.iloc[i]['e'] - df1.iloc[i]['e']) / delay)
-        #else:
-            #I.append(0)
     for m in range(len(I)):
         if((df2.iloc[m]['z'] >= pos2) & (df2.iloc[m]['z'] < pos1)):
             numLayers = current2-current1
@@ -243,8 +177,6 @@ def CurrentAltitude(stored_data, stored_height, stored_time, delay, dt, asc_rate
             I[m] = I[m-1] - deltaI
     z = linspace(0, len(df1)*asc_rate*dt, len(df2))
     plt.plot(z, I, label = "Inferred Current")
-    #print(len(df1), len(I))
-    #return df1, df2
 
 def CurrentAltitudeCorrection(stored_data, stored_height, stored_time, delay, dt, asc_rate, LightningTimes): #this is actually important
     e0 = 8.854187817e-12
@@ -258,6 +190,7 @@ def CurrentAltitudeCorrection(stored_data, stored_height, stored_time, delay, dt
     pos1=0
     current2=0
     pos2=0
+    correctionFactor = 0
     for j in range(len(LightningTimes)):
         for k in range(len(df1)):
                 if(df1.iloc[k]['t'] > LightningTimes[j]):
@@ -275,14 +208,16 @@ def CurrentAltitudeCorrection(stored_data, stored_height, stored_time, delay, dt
                     current2 = l - 1
                     #print(current2)
                     break
+    #apply corrections to upper balloon too?
+    #instead of constant correction factor, have correction based on altitude depending on behavior observed by two balloons
+    #interpolates correction based on electric field change at lower and upper altitudes, will work best with short delay between balloons
+    for m in range(len(df2)):
+        if((df2.iloc[m]['z'] >= pos2) & (df2.iloc[m]['z'] < pos1)):
+            correctionFactor = df2.iloc[m]['e'] - df2.iloc[m-1]['e']
+            df2.iloc[m]['e'] = df2.iloc[m]['e'] + correctionFactor
+            print(df2.iloc[m]['e'], df2.iloc[m-1]['e'])
     for i in range(len(df2)):
         I.append(-e0 * (df2.iloc[i]['e'] - df1.iloc[i]['e']) / delay)
-    #for m in range(len(I)):
-        #if((df2.iloc[m]['z'] >= pos2) & (df2.iloc[m]['z'] < pos1)):
-            #if correction factor involves some relation to lightning strike magnitude, include it here, and then convert to current
-            # currentCorrection = correctionFactor with some relation to current
-            #currentCorrection = 0
-            #I[m] = I[m] + currentCorrection
     z = linspace(0, len(df1)*asc_rate*dt, len(df2))
     plt.plot(z, I, label = "Inferred Current")
 
