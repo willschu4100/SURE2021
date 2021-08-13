@@ -137,152 +137,8 @@ def SaveAnimationGif(animation):
     animationToSave.save('TestAnimation.gif')
 
 
-def CurrentAltitude(stored_data, stored_height, stored_time, delay, dt, asc_rate, LightningTimes): #this should show the current without any correction for lightning. useful for testing?
-    e0 = 8.854187817e-12
-    n = 10
-    I = []
-    df1 = DataFrame(list(zip(stored_data[0], stored_time[0], stored_height[0])), columns = ['e', 't', 'z'])
-    for a in range(int(delay/dt)):
-        df1 = df1.iloc[:-1, :]
-    df2 = DataFrame(list(zip(stored_data[1], stored_time[1], stored_height[1])), columns = ['e', 't', 'z'])
-    current1=0
-    pos1=0
-    current2=0
-    pos2=0
-    for j in range(len(LightningTimes)):
-        for k in range(len(df1)):
-                if(df1.iloc[k]['t'] > LightningTimes[j]):
-                    pos1 = round(df1.iloc[k]['z'], 4)
-                    current1 = k - 1
-                    #print(pos1)
-                    #print(current1)
-                    break
-        for l in range(len(df2)):
-                if(df2.iloc[l]['t'] > LightningTimes[j]):
-                    pos2 = round(df2.iloc[l]['z'], 4)
-                    #print(pos2)
-                    #current2 = int(current1 - delay/dt)
-                    #current2 = df1.loc[[df1['z'] == pos2]]['t']/dt
-                    current2 = l - 1
-                    #print(current2)
-                    break
-    for i in range(len(df2)):
-        I.append(-e0 * (df2.iloc[i]['e'] - df1.iloc[i]['e']) / delay)
-    #for m in range(len(I)):
-     #   if((df2.iloc[m]['z'] >= pos2) & (df2.iloc[m]['z'] < pos1)):
-      #      numLayers = current2-current1
-       #     deltaI = (I[current1+1]-I[current2]) / (numLayers-1)
-        #    print("I[",m,"]", "=", I[m])
-         #   print(I[m-1], '-', deltaI, '=', I[m])
-          #  I[m] = I[m-1] - deltaI
-    z = linspace(0, len(df1)*asc_rate*dt, len(df2))
-    plt.plot(z, I, label = "Inferred Current")
 
-def CurrentAltitudeLinearCorrection(stored_data, stored_height, stored_time, delay, dt, asc_rate, LightningTimes): #probably not important anymore. could delete.
-    e0 = 8.854187817e-12
-    n = 10
-    I = []
-    df1 = DataFrame(list(zip(stored_data[0], stored_time[0], stored_height[0])), columns = ['e', 't', 'z'])
-    for a in range(int(delay/dt)):
-        df1 = df1.iloc[:-1, :]
-    df2 = DataFrame(list(zip(stored_data[1], stored_time[1], stored_height[1])), columns = ['e', 't', 'z'])
-    current1=0
-    pos1=0
-    current2=0
-    pos2=0
-    correctionFactor = 0
-    for j in range(len(LightningTimes)):
-        for k in range(len(df1)):
-                if(df1.iloc[k]['t'] > LightningTimes[j]):
-                    pos1 = round(df1.iloc[k]['z'], 4)
-                    current1 = k - 1
-                    #print(pos1)
-                    #print(current1)
-                    break
-        for l in range(len(df2)):
-                if(df2.iloc[l]['t'] > LightningTimes[j]):
-                    pos2 = round(df2.iloc[l]['z'], 4)
-                    #print(pos2)
-                    #current2 = int(current1 - delay/dt)
-                    #current2 = df1.loc[[df1['z'] == pos2]]['t']/dt
-                    current2 = l - 1
-                    #print(current2)
-                    break
-    #apply corrections to upper balloon too?
-    #instead of constant correction factor, have correction based on altitude depending on behavior observed by two balloons
-    #interpolates correction based on electric field change at lower and upper altitudes, will work best with short delay between balloons
-    for m in range(len(df2)):
-        if((df2.iloc[m]['z'] >= pos2) & (df2.iloc[m]['z'] < pos1)):
-            #correctionFactor = df2.iloc[m]['e']
-            #break
-            #correctionFactor = df2.iloc[m]['e'] - df2.iloc[m-1]['e']
-            df2.iloc[m,0] = df2.iloc[m,0] - 683.6258868516002 #441.2609710246001#286.98222786037786 #2869.8222786036663 #correctionFactor
-            print("The current at layer",m, "is:", df2.iloc[m]['e'])
-            
-    #for n in range(len(df2)):
-     #   if((df2.iloc[n]['z'] >= pos2) & (df2.iloc[n]['z'] < pos1)):
-      #      df2.iloc[n,0] = df2.iloc[n,0] + 2869.8222786036663#correctionFactor
-    for i in range(len(df2)):
-        I.append(-e0 * (df2.iloc[i]['e'] - df1.iloc[i]['e']) / delay)
-    z = linspace(0, len(df1)*asc_rate*dt, len(df2))
-    plt.plot(z, I, label = "Inferred Current")
-
-def CurrentAltitudeInterp(stored_data, stored_height, stored_time, delay, dt, asc_rate, LightningTimes): #interpolation, only works for one lightning strike
-    e0 = 8.854187817e-12
-    n = 10
-    I = []
-    df1 = DataFrame(list(zip(stored_data[0], stored_time[0], stored_height[0])), columns = ['e', 't', 'z'])
-    for a in range(int(delay/dt)):
-        df1 = df1.iloc[:-1, :]
-    df2 = DataFrame(list(zip(stored_data[1], stored_time[1], stored_height[1])), columns = ['e', 't', 'z'])
-    current1=0
-    pos1=0
-    current2=0
-    pos2=0
-    layer1 = 0
-    layer2 = 0
-    correctionFactor = []
-    for j in range(len(LightningTimes)):
-        for k in range(len(df1)):
-                if(df1.iloc[k]['t'] > LightningTimes[j]):
-                    pos1 = round(df1.iloc[k]['z'], 4)
-                    layer1 = k
-                    #current1 = k - 1
-                    #print(pos1)
-                    #print(current1)
-                    break
-        for l in range(len(df2)):
-                if(df2.iloc[l]['t'] > LightningTimes[j]):
-                    pos2 = round(df2.iloc[l]['z'], 4)
-                    layer2 = k
-                    #print(pos2)
-                    #current2 = int(current1 - delay/dt)
-                    #current2 = df1.loc[[df1['z'] == pos2]]['t']/dt
-                    #current2 = l - 1
-                    #print(current2)
-                    break
-    dECurrentLower = df2.iloc[layer2-11,0] - df2.iloc[layer2-12,0]
-    dECurrentUpper = df1.iloc[layer1+1,0] - df1.iloc[layer1,0]
-    dELower = (df2.iloc[layer2-10,0] - df2.iloc[layer2-11,0]) - dECurrentLower
-    dEUpper = (df1.iloc[layer1,0] - df1.iloc[layer1-1,0]) - dECurrentUpper
-    #print(dELower, dEUpper)
-    for m in range(len(df2)):
-        
-        #print(m, layer2, df2.iloc[m]['e'], df2.iloc[m,0])
-        if((df2.iloc[m]['z'] >= pos2) & (df2.iloc[m]['z'] < pos1)):
-            #print(df2.iloc[layer2-1,0], df2.iloc[layer2-4,0])
-            correctionFactor = interp(df2.iloc[m]['z'], [pos2, pos1], [dELower, dEUpper])
-            #print(df2.iloc[m]['z'], pos2, pos1, df2.iloc[m,0], dELower, correctionFactor)
-            df2.iloc[m,0] = df2.iloc[m,0] - sign(df2.iloc[m,0]) * correctionFactor
-            #balloon_data[j] = interp(balloon_z[j],z[1:],E_field[jj])
-            #print(df2.iloc[m,0], df2.iloc[m-1]['e'])
-    for i in range(len(df2)):
-        I.append(-e0 * (df2.iloc[i]['e'] - df1.iloc[i]['e']) / delay)
-    z = linspace(0, len(df1)*asc_rate*dt, len(df2))
-    #return(df2)
-    plt.plot(z, I, label = "Inferred Current")    
-    
-def CurrentAltitudeMultipleLightning(stored_data, stored_height, stored_time, delay, dt, asc_rate, LightningTimes): 
+def CalculateCurrent(stored_data, stored_height, stored_time, delay, dt, asc_rate, LightningTimes): 
     e0 = 8.854187817e-12
     n = 10
     I = []
@@ -303,21 +159,20 @@ def CurrentAltitudeMultipleLightning(stored_data, stored_height, stored_time, de
                 layerUpper = k + int(delay/dt)
                 layerLower = k 
                 LightningTimes.pop(0)
-                print("pop")
+                #print("pop")
                 dECurrentLower = df2.iloc[layerLower-1,0] - df2.iloc[layerLower-2,0]
-                dECurrentUpper = df1.iloc[layerUpper+12,0] - df1.iloc[layerUpper+11,0]
+                dECurrentUpper = df1.iloc[layerUpper+1,0] - df1.iloc[layerUpper,0]
                 dELower = (df2.iloc[layerLower,0] - df2.iloc[layerLower-1,0])
                 dELightningLower = dELower - dECurrentLower
-                #print(df2.iloc[layer2,0] - df2.iloc[layer2-1,0])
-                dEUpper = (df1.iloc[layerUpper+11,0] - df1.iloc[layerUpper+10,0])
-                dELightningUpper = dEUpper - sign(dEUpper - dELower) * dECurrentUpper
-                print("dECurrentLower is", dECurrentLower, "dECurrentUpper is", dECurrentUpper)
-                print("dELower is" ,dELower, "dEUpper is", dEUpper)
-                print("dELightningLower is", dELightningLower, "dELightningUpper is", dELightningUpper)
+                dEUpper = (df1.iloc[layerUpper,0] - df1.iloc[layerUpper-1,0])
+                dELightningUpper = dEUpper -  dECurrentUpper
+                #print("dECurrentLower is", dECurrentLower, "dECurrentUpper is", dECurrentUpper)
+                #print("dELower is" ,dELower, "dEUpper is", dEUpper)
+                #print("dELightningLower is", dELightningLower, "dELightningUpper is", dELightningUpper)
         if((df2.iloc[k]['z'] >= posLower) & (df2.iloc[k]['z'] < posUpper)):
             correctionFactor = interp(df2.iloc[k]['z'], [posLower, posUpper], [dELightningLower, dELightningUpper])
-            df2.iloc[k,0] = df2.iloc[k,0] - sign(df2.iloc[k,0]) * correctionFactor
-            print("Correction factor", correctionFactor, "applied to layer", k)
+            df2.iloc[k,0] = df2.iloc[k,0] -  correctionFactor
+            #print("Correction factor", correctionFactor, "applied to layer", k)
     for i in range(len(df2)):
         I.append(-e0 * (df2.iloc[i]['e'] - df1.iloc[i]['e']) / delay)
     z = linspace(0, len(df1)*asc_rate*dt, len(df2))
